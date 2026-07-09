@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Check, ArrowRight, Play, MapPin, Phone, Mail, Clock } from 'lucide-react';
-import { products, getVariantsByProductId } from '@/lib/data';
+import { products } from '@/lib/data';
+import { fetchProducts, fetchVariantsByProductId } from '@/lib/products';
 import { useCart } from '@/context/CartContext';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import type { Product, ProductVariant } from '@/types';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -87,10 +89,9 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function ProductCard({ product }: { product: typeof products[0] }) {
+function ProductCard({ product, variants }: { product: Product; variants?: ProductVariant[] }) {
   const { addToCart } = useCart();
-  const variants = getVariantsByProductId(product.id);
-  const defaultVariant = variants[0];
+  const defaultVariant = variants && variants.length > 0 ? variants[0] : undefined;
 
   const handleAdd = () => {
     if (defaultVariant) {
@@ -156,6 +157,32 @@ function ProductCard({ product }: { product: typeof products[0] }) {
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<HTMLDivElement[]>([]);
+  const [displayProducts, setDisplayProducts] = useState<Product[]>([]);
+  const [productVariants, setProductVariants] = useState<Record<string, ProductVariant[]>>({});
+
+  // Load products from database on mount
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const dbProducts = await fetchProducts();
+        setDisplayProducts(dbProducts.slice(0, 4)); // Show first 4 products
+        
+        // Load variants for each product
+        const variants: Record<string, ProductVariant[]> = {};
+        for (const product of dbProducts.slice(0, 4)) {
+          const vars = await fetchVariantsByProductId(product.id);
+          variants[product.id] = vars;
+        }
+        setProductVariants(variants);
+      } catch (err) {
+        console.error('[v0] Failed to load products:', err);
+        // Fallback to hardcoded products
+        setDisplayProducts(products.slice(0, 4));
+      }
+    };
+    
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -538,9 +565,9 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {products.slice(0, 4).map((product) => (
+            {(displayProducts.length > 0 ? displayProducts : products.slice(0, 4)).map((product) => (
               <div key={product.id} className="anim-item">
-                <ProductCard product={product} />
+                <ProductCard product={product} variants={productVariants[product.id]} />
               </div>
             ))}
           </div>

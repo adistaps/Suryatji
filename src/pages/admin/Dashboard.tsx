@@ -3,19 +3,21 @@ import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ClipboardList, BarChart3, Wallet,
   Settings, LogOut, Search, Bell,
-  Eye, TrendingUp, Clock, AlertTriangle
+  Eye, TrendingUp, Clock, AlertTriangle, Tag
 } from 'lucide-react';
 import AdminProducts from './AdminProducts';
 import AdminOrders from './AdminOrders';
 import AdminCashflow from './AdminCashflow';
 import AdminReports from './AdminReports';
 import AdminSettings from './AdminSettings';
+import AdminCategories from './AdminCategories';
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', id: 'dashboard' },
   { icon: Package, label: 'Products', id: 'products' },
+  { icon: Tag, label: 'Categories', id: 'categories' },
   { icon: ClipboardList, label: 'Orders', id: 'orders' },
   { icon: BarChart3, label: 'Reports', id: 'reports' },
   { icon: Wallet, label: 'Cashflow', id: 'cashflow' },
@@ -211,6 +213,9 @@ export default function AdminDashboard() {
 
       case 'products':
         return <AdminProducts />;
+
+      case 'categories':
+        return <AdminCategories />;
 
       case 'orders':
         return <AdminOrders />;

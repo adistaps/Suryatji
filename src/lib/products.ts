@@ -5,9 +5,55 @@ import type { Product, ProductVariant, Category } from '@/types';
 // CATEGORIES
 // ============================================
 export async function fetchCategories(): Promise<Category[]> {
-  const { data, error } = await supabase.from('categories').select('*').order('name');
+  const { data, error } = await supabase.from('categories').select('*').order('display_order', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }));
+}
+
+export interface CategoryFormInput {
+  name: string;
+  slug: string;
+  description?: string;
+  iconUrl?: string;
+  isActive: boolean;
+}
+
+export async function createCategory(input: CategoryFormInput) {
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      icon_url: input.iconUrl,
+      is_active: input.isActive,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCategory(id: string, input: Partial<CategoryFormInput>) {
+  const { error } = await supabase
+    .from('categories')
+    .update({
+      ...(input.name && { name: input.name }),
+      ...(input.slug && { slug: input.slug }),
+      ...(input.description !== undefined && { description: input.description }),
+      ...(input.iconUrl !== undefined && { icon_url: input.iconUrl }),
+      ...(input.isActive !== undefined && { is_active: input.isActive }),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function deleteCategory(id: string) {
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ============================================

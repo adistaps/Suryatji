@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, ChevronRight, Star, ChevronLeft } from 'lucide-react';
-import { products, categories, productTags, getVariantsByProductId } from '@/lib/data';
+import { Search, Star } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import PageHeader from '@/components/layout/PageHeader';
+import { fetchProducts, fetchCategories, fetchVariantsByProductId } from '@/lib/products';
+import type { Product, ProductVariant, Category } from '@/types';
 
-function ProductCard({ product }: { product: typeof products[0] }) {
+function ProductCard({ product, variants }: { product: Product; variants?: ProductVariant[] }) {
   const { addToCart } = useCart();
-  const variants = getVariantsByProductId(product.id);
-  const defaultVariant = variants[0];
+  const defaultVariant = variants && variants.length > 0 ? variants[0] : undefined;
   const displayPrice = product.salePrice || (defaultVariant ? defaultVariant.price : 0);
   const originalPrice = defaultVariant ? defaultVariant.price : 0;
 
@@ -32,6 +32,7 @@ function ProductCard({ product }: { product: typeof products[0] }) {
         <button
           onClick={(e) => { e.preventDefault(); handleAdd(); }}
           className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-[#4A7C3A] text-white text-xs font-semibold px-5 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#3d6b2f]"
+          disabled={!defaultVariant}
         >
           Add to cart
         </button>
@@ -53,7 +54,7 @@ function ProductCard({ product }: { product: typeof products[0] }) {
         </Link>
         <div className="flex items-center gap-2 mt-2">
           <span className="text-[#4A7C3A] font-bold">Rp {Math.round(displayPrice).toLocaleString('id-ID')}</span>
-          {product.salePrice && (
+          {product.salePrice && defaultVariant && (
             <span className="text-[#A89782] text-sm line-through">Rp {Math.round(originalPrice).toLocaleString('id-ID')}</span>
           )}
         </div>
@@ -65,41 +66,78 @@ function ProductCard({ product }: { product: typeof products[0] }) {
 export default function Shop() {
   const [searchParams] = useSearchParams();
   const categoryFilter = searchParams.get('category') || '';
+  
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  const [dbCategories, setDbCategories] = useState<Category[]>([]);
+  const [productVariants, setProductVariants] = useState<Record<string, ProductVariant[]>>({});
+  const [loading, setLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['Products']);
-  const [priceRange, setPriceRange] = useState([0, 50]);
+  const [priceRange, setPriceRange] = useState([0, 500000]); // Max range 500k Rp
   const [selectedTag, setSelectedTag] = useState('');
   const [sortBy, setSortBy] = useState('default');
 
-  const toggleCategory = (name: string) => {
-    setExpandedCategories(prev =>
-      prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]
-    );
-  };
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [prods, cats] = await Promise.all([
+          fetchProducts(),
+          fetchCategories()
+        ]);
+        setDbProducts(prods);
+        setDbCategories(cats);
 
-  let filtered = products.filter(p => {
+        // Fetch variants for each product
+        const varsMap: Record<string, ProductVariant[]> = {};
+        await Promise.all(
+          prods.map(async (p) => {
+            const vars = await fetchVariantsByProductId(p.id);
+            varsMap[p.id] = vars;
+          })
+        );
+        setProductVariants(varsMap);
+      } catch (err) {
+        console.error('Failed to load shop products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+
+  // Extract all tags from dbProducts
+  const allTags = Array.from(new Set(dbProducts.flatMap(p => p.tags || [])));
+
+  let filtered = dbProducts.filter(p => {
     if (categoryFilter && !p.category.toLowerCase().replace(/\s+/g, '-').includes(categoryFilter.toLowerCase())) return false;
     if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (selectedTag && !p.tags.includes(selectedTag)) return false;
-    const variants = getVariantsByProductId(p.id);
-    const minPrice = Math.min(...variants.map(v => p.salePrice || v.price));
-    if (minPrice < priceRange[0] || minPrice > priceRange[1]) return false;
+    if (selectedTag && !p.tags?.includes(selectedTag)) return false;
+    
+    const vars = productVariants[p.id] || [];
+    const minPrice = vars.length > 0 ? Math.min(...vars.map(v => p.salePrice || v.price)) : 0;
+    if (minPrice > priceRange[1]) return false;
     return true;
   });
 
-  if (sortBy === 'price-low') filtered = [...filtered].sort((a, b) => {
-    const va = getVariantsByProductId(a.id);
-    const vb = getVariantsByProductId(b.id);
-    return (a.salePrice || va[0]?.price || 0) - (b.salePrice || vb[0]?.price || 0);
-  });
-  if (sortBy === 'price-high') filtered = [...filtered].sort((a, b) => {
-    const va = getVariantsByProductId(a.id);
-    const vb = getVariantsByProductId(b.id);
-    return (b.salePrice || vb[0]?.price || 0) - (a.salePrice || va[0]?.price || 0);
-  });
-
-  const currentPage = 1;
-  const totalResults = 19;
+  if (sortBy === 'price-low') {
+    filtered = [...filtered].sort((a, b) => {
+      const va = productVariants[a.id] || [];
+      const vb = productVariants[b.id] || [];
+      const priceA = a.salePrice || va[0]?.price || 0;
+      const priceB = b.salePrice || vb[0]?.price || 0;
+      return priceA - priceB;
+    });
+  } else if (sortBy === 'price-high') {
+    filtered = [...filtered].sort((a, b) => {
+      const va = productVariants[a.id] || [];
+      const vb = productVariants[b.id] || [];
+      const priceA = a.salePrice || va[0]?.price || 0;
+      const priceB = b.salePrice || vb[0]?.price || 0;
+      return priceB - priceA;
+    });
+  }
 
   return (
     <div>
@@ -117,7 +155,7 @@ export default function Shop() {
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-l-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#4A7C3A]"
+                  className="w-full border border-gray-200 rounded-l-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#4A7C3A]"
                 />
                 <button className="bg-[#4A7C3A] text-white px-4 rounded-r-lg hover:bg-[#3d6b2f] transition-colors">
                   <Search size={18} />
@@ -133,33 +171,14 @@ export default function Shop() {
                   Product Categories
                 </h4>
                 <div className="space-y-1">
-                  {categories.map((cat) => (
+                  {dbCategories.map((cat) => (
                     <div key={cat.id}>
-                      <button
-                        onClick={() => toggleCategory(cat.name)}
+                      <Link
+                        to={`/shop?category=${cat.slug}`}
                         className="flex items-center gap-1 w-full text-left text-sm text-[#1E1A17] hover:text-[#4A7C3A] py-1.5 transition-colors"
                       >
-                        {cat.subcategories && (
-                          <ChevronRight
-                            size={14}
-                            className={`transition-transform ${expandedCategories.includes(cat.name) ? 'rotate-90' : ''}`}
-                          />
-                        )}
                         {cat.name}
-                      </button>
-                      {cat.subcategories && expandedCategories.includes(cat.name) && (
-                        <div className="ml-5 space-y-1">
-                          {cat.subcategories.map((sub) => (
-                            <Link
-                              key={sub.id}
-                              to={`/shop?category=${sub.slug}`}
-                              className="block text-sm text-[#8B6F4E] hover:text-[#4A7C3A] py-1 transition-colors"
-                            >
-                              {sub.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -176,50 +195,57 @@ export default function Shop() {
                 <input
                   type="range"
                   min="0"
-                  max="50"
+                  max="500000"
+                  step="10000"
                   value={priceRange[1]}
                   onChange={(e) => setPriceRange([0, Number(e.target.value)])}
                   className="w-full accent-[#4A7C3A]"
                 />
-                <p className="text-sm text-[#8B6F4E] mt-2">Price: ${priceRange[0]} — ${priceRange[1]}</p>
+                <p className="text-sm text-[#8B6F4E] mt-2">
+                  Harga: Rp 0 — Rp {priceRange[1].toLocaleString('id-ID')}
+                </p>
                 <button
-                  onClick={() => setPriceRange([0, 50])}
+                  onClick={() => setPriceRange([0, 500000])}
                   className="mt-3 bg-[#4A7C3A] text-white text-sm font-semibold px-6 py-2 rounded-full hover:bg-[#3d6b2f] transition-colors"
                 >
-                  Filter
+                  Reset Filter
                 </button>
               </div>
 
               {/* Tags */}
-              <div>
-                <h4 className="text-[#1E1A17] font-semibold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#4A7C3A">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01" />
-                  </svg>
-                  Product Tags
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {productTags.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => setSelectedTag(selectedTag === tag ? '' : tag)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        selectedTag === tag
-                          ? 'bg-[#4A7C3A] text-white border-[#4A7C3A]'
-                          : 'bg-white text-[#8B6F4E] border-gray-200 hover:border-[#4A7C3A] hover:text-[#4A7C3A]'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+              {allTags.length > 0 && (
+                <div>
+                  <h4 className="text-[#1E1A17] font-semibold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#4A7C3A">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01" />
+                    </svg>
+                    Product Tags
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => setSelectedTag(selectedTag === tag ? '' : tag)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                          selectedTag === tag
+                            ? 'bg-[#4A7C3A] text-white border-[#4A7C3A]'
+                            : 'bg-white text-[#8B6F4E] border-gray-200 hover:border-[#4A7C3A] hover:text-[#4A7C3A]'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </aside>
 
             {/* Product Grid */}
             <div className="flex-1">
               <div className="flex items-center justify-between mb-6">
-                <p className="text-sm text-[#8B6F4E]">Showing 1–{filtered.length} of {totalResults} results</p>
+                <p className="text-sm text-[#8B6F4E]">
+                  {loading ? 'Loading...' : `Showing ${filtered.length} results`}
+                </p>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -231,33 +257,15 @@ export default function Shop() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filtered.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-center gap-2 mt-10">
-                <button className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-[#8B6F4E] hover:border-[#4A7C3A] hover:text-[#4A7C3A] transition-colors">
-                  <ChevronLeft size={16} />
-                </button>
-                {[1, 2, 3, 4].map((p) => (
-                  <button
-                    key={p}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                      p === currentPage
-                        ? 'bg-[#4A7C3A] text-white'
-                        : 'border border-gray-200 text-[#1E1A17] hover:border-[#4A7C3A] hover:text-[#4A7C3A]'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-[#8B6F4E] hover:border-[#4A7C3A] hover:text-[#4A7C3A] transition-colors">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              {loading ? (
+                <div className="text-center py-20 text-gray-500">Loading products from database...</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {filtered.map((product) => (
+                    <ProductCard key={product.id} product={product} variants={productVariants[product.id]} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

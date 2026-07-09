@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Plus, Minus } from 'lucide-react';
-import { getProductBySlug, getVariantsByProductId, getRelatedProducts } from '@/lib/data';
 import { useCart } from '@/context/CartContext';
 import PageHeader from '@/components/layout/PageHeader';
+import { fetchProductBySlug, fetchVariantsByProductId, fetchProducts } from '@/lib/products';
+import type { Product, ProductVariant } from '@/types';
 
 const grindOptions = [
   { value: 'whole_bean', label: 'Whole Bean' },
@@ -17,13 +18,67 @@ const weightOptions = ['250g', '500g', '1kg'];
 
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const product = getProductBySlug(slug || '');
   const { addToCart } = useCart();
+
+  const [product, setProduct] = useState<Product | null>(null);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [relatedVariants, setRelatedVariants] = useState<Record<string, ProductVariant[]>>({});
+  const [loading, setLoading] = useState(true);
+
   const [selectedWeight, setSelectedWeight] = useState('250g');
   const [selectedGrind, setSelectedGrind] = useState('whole_bean');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
   const [activeImage, setActiveImage] = useState(0);
+
+  useEffect(() => {
+    const loadDetail = async () => {
+      if (!slug) return;
+      try {
+        setLoading(true);
+        const prod = await fetchProductBySlug(slug);
+        if (prod) {
+          setProduct(prod);
+          
+          const [vars, allProds] = await Promise.all([
+            fetchVariantsByProductId(prod.id),
+            fetchProducts()
+          ]);
+          setVariants(vars);
+
+          // Get related products (same category, max 3)
+          const rel = allProds
+            .filter(p => p.id !== prod.id && p.category === prod.category)
+            .slice(0, 3);
+          setRelated(rel);
+
+          // Get variants for related products
+          const relVarsMap: Record<string, ProductVariant[]> = {};
+          await Promise.all(
+            rel.map(async (rp) => {
+              const rVars = await fetchVariantsByProductId(rp.id);
+              relVarsMap[rp.id] = rVars;
+            })
+          );
+          setRelatedVariants(relVarsMap);
+        }
+      } catch (err) {
+        console.error('Failed to load product detail:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDetail();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="pt-32 text-center py-20 text-gray-500">
+        Loading product detail...
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -34,11 +89,9 @@ export default function ProductDetail() {
     );
   }
 
-  const variants = getVariantsByProductId(product.id);
   const selectedVariant = variants.find(
     v => v.weight === selectedWeight && v.grindType === selectedGrind
   ) || variants[0];
-  const related = getRelatedProducts(product.id);
 
   const images = [
     product.image,
@@ -105,7 +158,7 @@ export default function ProductDetail() {
                     />
                   ))}
                 </div>
-                <span className="text-xs text-[#8B6F4E]">({product.reviewCount} customer review{product.reviewCount !== 1 ? 's' : ''})</span>
+                <span className="text-xs text-[#8B6F4E]">({product.reviewCount} customer reviews)</span>
               </div>
 
               <h1 className="text-[#1E1A17] font-bold text-3xl" style={{ fontFamily: '"Playfair Display", serif' }}>
@@ -113,7 +166,7 @@ export default function ProductDetail() {
               </h1>
 
               <p className="text-[#4A7C3A] font-bold text-2xl mt-3">
-                ${selectedVariant ? selectedVariant.price.toFixed(2) : '0.00'}
+                Rp {selectedVariant ? Math.round(selectedVariant.price).toLocaleString('id-ID') : '0'}
               </p>
 
               <p className="text-[#8B6F4E] mt-5 leading-relaxed">{product.description}</p>
@@ -182,6 +235,7 @@ export default function ProductDetail() {
               <button
                 onClick={handleAddToCart}
                 className="w-full mt-8 bg-[#4A7C3A] text-white font-semibold py-4 rounded-full hover:bg-[#3d6b2f] transition-colors"
+                disabled={!selectedVariant}
               >
                 Add to Cart
               </button>
@@ -189,12 +243,12 @@ export default function ProductDetail() {
               {/* Meta */}
               <div className="mt-6 pt-6 border-t border-gray-100">
                 <p className="text-sm text-[#8B6F4E]">
-                  <span className="font-semibold text-[#1E1A17]">Categories:</span>{' '}
-                  {product.features.join(', ')}
+                  <span className="font-semibold text-[#1E1A17]">Features:</span>{' '}
+                  {product.features?.join(', ') || '-'}
                 </p>
                 <p className="text-sm text-[#8B6F4E] mt-2">
                   <span className="font-semibold text-[#1E1A17]">Tags:</span>{' '}
-                  {product.tags.join(', ')}
+                  {product.tags?.join(', ') || '-'}
                 </p>
               </div>
             </div>
@@ -265,39 +319,45 @@ export default function ProductDetail() {
           </div>
 
           {/* Related Products */}
-          <div className="mt-12">
-            <h2
-              className="text-[#1E1A17] font-bold text-center mb-8"
-              style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
-            >
-              Related Products
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {related.map((rp) => (
-                <Link
-                  key={rp.id}
-                  to={`/shop/${rp.slug}`}
-                  className="group bg-white rounded-lg overflow-hidden border border-gray-100 hover:shadow-md transition-shadow"
-                >
-                  <div className="aspect-square bg-[#F9F6F1] overflow-hidden">
-                    <img
-                      src={rp.image}
-                      alt={rp.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-[#1E1A17] font-semibold" style={{ fontFamily: '"Playfair Display", serif' }}>
-                      {rp.name}
-                    </h3>
-                    <p className="text-[#4A7C3A] font-bold mt-1">
-                      Rp {Math.round((rp.salePrice || getVariantsByProductId(rp.id)[0]?.price || 0)).toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+          {related.length > 0 && (
+            <div className="mt-12">
+              <h2
+                className="text-[#1E1A17] font-bold text-center mb-8"
+                style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+              >
+                Related Products
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {related.map((rp) => {
+                  const rpVars = relatedVariants[rp.id] || [];
+                  const rpPrice = rp.salePrice || (rpVars.length > 0 ? rpVars[0].price : 0);
+                  return (
+                    <Link
+                      key={rp.id}
+                      to={`/shop/${rp.slug}`}
+                      className="group bg-white rounded-lg overflow-hidden border border-gray-100 hover:shadow-md transition-shadow"
+                    >
+                      <div className="aspect-square bg-[#F9F6F1] overflow-hidden">
+                        <img
+                          src={rp.image}
+                          alt={rp.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-[#1E1A17] font-semibold" style={{ fontFamily: '"Playfair Display", serif' }}>
+                          {rp.name}
+                        </h3>
+                        <p className="text-[#4A7C3A] font-bold mt-1">
+                          Rp {Math.round(rpPrice).toLocaleString('id-ID')}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
     </div>
