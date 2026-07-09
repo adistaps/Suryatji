@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
-import { bankAccounts } from '@/lib/data';
+import { fetchBankAccounts } from '@/lib/settings';
+import { checkShipping, WEIGHT_GRAMS_MAP } from '@/lib/komerce';
+import { createOrder } from '@/lib/orders';
+import type { BankAccount, ShippingMethod } from '@/types';
 
 const provinces = [
   'Jawa Tengah', 'Jawa Barat', 'Jawa Timur', 'DKI Jakarta', 'DI Yogyakarta',
@@ -18,12 +21,6 @@ const cities: Record<string, string[]> = {
   'Bali': ['Denpasar', 'Badung', 'Gianyar'],
 };
 
-const shippingMethods = [
-  { courier: 'JNE', service: 'REG', cost: 18000, etd: '2-3 hari' },
-  { courier: 'J\u0026T', service: 'EZ', cost: 15000, etd: '2-3 hari' },
-  { courier: 'SiCepat', service: 'REG', cost: 16000, etd: '1-2 hari' },
-];
-
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
@@ -39,11 +36,19 @@ export default function Checkout() {
   });
   const [paymentMethod, setPaymentMethod] = useState<'qris' | 'bank_transfer'>('qris');
   const [selectedBank, setSelectedBank] = useState('');
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<number | null>(null);
   const [calculatedShipping, setCalculatedShipping] = useState(false);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const shippingCost = selectedShipping !== null ? shippingMethods[selectedShipping].cost : 0;
+  useEffect(() => {
+    fetchBankAccounts().then(setBankAccounts).catch(() => setBankAccounts([]));
+  }, []);
+
+  const shippingCost = selectedShipping !== null ? shippingMethods[selectedShipping]?.cost ?? 0 : 0;
   const total = subtotal + shippingCost;
 
   const updateField = (field: string, value: string) => {
@@ -51,7 +56,7 @@ export default function Checkout() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const calculateShipping = () => {
+  const calculateShipping = async () => {
     const newErrors: Record<string, string> = {};
     if (!form.province) newErrors.province = 'Province is required';
     if (!form.city) newErrors.city = 'City is required';
@@ -61,11 +66,23 @@ export default function Checkout() {
       setErrors(newErrors);
       return;
     }
-    setCalculatedShipping(true);
-    setSelectedShipping(0);
+
+    setShippingLoading(true);
+    try {
+      const totalWeightGrams = items.reduce(
+        (sum, item) => sum + (WEIGHT_GRAMS_MAP[item.variant.weight] ?? 0) * item.quantity,
+        0
+      );
+      const methods = await checkShipping({ destinationCity: form.city, totalWeightGrams });
+      setShippingMethods(methods);
+      setCalculatedShipping(true);
+      setSelectedShipping(0);
+    } finally {
+      setShippingLoading(false);
+    }
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     const newErrors: Record<string, string> = {};
     if (!form.fullName) newErrors.fullName = 'Full name is required';
     if (!form.phone) newErrors.phone = 'Phone number is required';
@@ -83,34 +100,65 @@ export default function Checkout() {
       return;
     }
 
-    // Generate order number
-    const orderNumber = `SC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
+    setPlacingOrder(true);
+    try {
+      const selectedBankAccount = paymentMethod === 'bank_transfer' ? bankAccounts.find(b => b.id === selectedBank) : null;
+      const courierLabel = selectedShipping !== null ? `${shippingMethods[selectedShipping].courier} ${shippingMethods[selectedShipping].service}` : '';
 
-    // Store order info for success page
-    const orderData = {
-      orderNumber,
-      customerName: form.fullName,
-      customerPhone: form.phone,
-      customerAddress: `${form.address}, ${form.district}, ${form.city}, ${form.province}`,
-      province: form.province,
-      city: form.city,
-      district: form.district,
-      shippingCost,
-      courier: selectedShipping !== null ? `${shippingMethods[selectedShipping].courier} ${shippingMethods[selectedShipping].service}` : '',
-      subtotal,
-      total,
-      paymentMethod,
-      bankAccount: paymentMethod === 'bank_transfer' ? bankAccounts.find(b => b.id === selectedBank) : null,
-      items: items.map(item => ({
-        productName: item.product.name,
-        variantLabel: `${item.variant.weight} - ${item.variant.grindType.replace('_', ' ')}`,
-        qty: item.quantity,
-        price: item.variant.price,
-      })),
-    };
-    localStorage.setItem('last_order', JSON.stringify(orderData));
-    clearCart();
-    navigate('/checkout/success');
+      const { id: orderId, orderNumber } = await createOrder({
+        address: {
+          fullName: form.fullName,
+          phone: form.phone,
+          email: form.email || undefined,
+          province: form.province,
+          city: form.city,
+          district: form.district,
+          address: form.address,
+          postalCode: form.postalCode || undefined,
+        },
+        items,
+        courier: courierLabel,
+        shippingCost,
+        subtotal,
+        total,
+        paymentMethod,
+        bankAccountId: selectedBankAccount?.id,
+      });
+
+      const orderData = {
+        orderId,
+        orderNumber,
+        customerName: form.fullName,
+        customerPhone: form.phone,
+        customerAddress: `${form.address}, ${form.district}, ${form.city}, ${form.province}`,
+        province: form.province,
+        city: form.city,
+        district: form.district,
+        shippingCost,
+        courier: courierLabel,
+        subtotal,
+        total,
+        paymentMethod,
+        bankAccount: selectedBankAccount ?? null,
+        items: items.map(item => ({
+          product: item.product,
+          variant: item.variant,
+          productName: item.product.name,
+          variantLabel: `${item.variant.weight} - ${item.variant.grindType.replace('_', ' ')}`,
+          qty: item.quantity,
+          price: item.variant.price,
+          quantity: item.quantity,
+        })),
+      };
+      localStorage.setItem('last_order', JSON.stringify(orderData));
+      clearCart();
+      navigate('/checkout/success');
+    } catch (err) {
+      console.error('Gagal membuat order:', err);
+      setErrors({ submit: 'Gagal membuat pesanan. Silakan coba lagi.' });
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   if (items.length === 0) {
@@ -264,9 +312,10 @@ export default function Checkout() {
 
               <button
                 onClick={calculateShipping}
-                className="bg-[#4A7C3A] text-white font-semibold px-6 py-3 rounded-full hover:bg-[#3d6b2f] transition-colors"
+                disabled={shippingLoading}
+                className="bg-[#4A7C3A] text-white font-semibold px-6 py-3 rounded-full hover:bg-[#3d6b2f] transition-colors disabled:opacity-60"
               >
-                Calculate Shipping
+                {shippingLoading ? 'Menghitung...' : 'Calculate Shipping'}
               </button>
               {errors.shipping && <p className="text-red-500 text-xs">{errors.shipping}</p>}
 
@@ -401,11 +450,13 @@ export default function Checkout() {
                 </div>
               </div>
 
+              {errors.submit && <p className="text-red-500 text-xs mt-3">{errors.submit}</p>}
               <button
                 onClick={placeOrder}
-                className="w-full bg-[#4A7C3A] text-white font-semibold py-4 rounded-full mt-6 hover:bg-[#3d6b2f] transition-colors"
+                disabled={placingOrder}
+                className="w-full bg-[#4A7C3A] text-white font-semibold py-4 rounded-full mt-6 hover:bg-[#3d6b2f] transition-colors disabled:opacity-60"
               >
-                Place Order
+                {placingOrder ? 'Memproses...' : 'Place Order'}
               </button>
             </div>
           </div>

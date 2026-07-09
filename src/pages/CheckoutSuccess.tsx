@@ -1,19 +1,26 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Upload, MessageCircle } from 'lucide-react';
+import { uploadPaymentProof } from '@/lib/orders';
+import { buildOrderWhatsAppMessage, buildWhatsAppLink } from '@/lib/whatsapp';
+import type { CartItem, ShippingAddress } from '@/types';
 
 interface OrderData {
+  orderId: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
   customerAddress: string;
+  province: string;
+  city: string;
+  district: string;
   shippingCost: number;
   courier: string;
   subtotal: number;
   total: number;
   paymentMethod: 'qris' | 'bank_transfer';
   bankAccount: { bankName: string; accountNumber: string; accountHolder: string } | null;
-  items: { productName: string; variantLabel: string; qty: number; price: number }[];
+  items: (CartItem & { productName: string; variantLabel: string; qty: number; price: number })[];
 }
 
 export default function CheckoutSuccess() {
@@ -27,22 +34,53 @@ export default function CheckoutSuccess() {
   });
   const [showUpload, setShowUpload] = useState(false);
   const [uploaded, setUploaded] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const generateWAMessage = () => {
-    if (!order) return '';
-    const items = order.items.map(i => `- ${i.productName} (${i.variantLabel}) x${i.qty} = $${(i.price * i.qty).toFixed(2)}`).join('%0A');
-    return `https://wa.me/6281229888033?text=Hi%20Suryatji%20Coffee%2C%0A%0AI%20have%20placed%20an%20order%3A%0A*Order%3A%20${order.orderNumber}*%0A%0A${items}%0A%0ASubtotal%3A%20$${order.subtotal.toFixed(2)}%0AShipping%3A%20Rp%20${order.shippingCost.toLocaleString()}%0A*Total%3A%20$${order.total.toFixed(2)}*%0A%0APayment%3A%20${order.paymentMethod === 'qris' ? 'QRIS' : 'Bank%20Transfer'}%0A%0APlease%20confirm%20my%20order.%20Thank%20you!`;
+    if (!order) return '#';
+    const address: ShippingAddress = {
+      fullName: order.customerName,
+      phone: order.customerPhone,
+      province: order.province,
+      city: order.city,
+      district: order.district,
+      address: order.customerAddress,
+    };
+    const message = buildOrderWhatsAppMessage({
+      orderNumber: order.orderNumber,
+      items: order.items,
+      address,
+      courier: order.courier,
+      shippingCost: order.shippingCost,
+      subtotal: order.subtotal,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      bankLabel: order.bankAccount ? `${order.bankAccount.bankName} - ${order.bankAccount.accountNumber} a.n. ${order.bankAccount.accountHolder}` : undefined,
+    });
+    return buildWhatsAppLink(message);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
+    if (!file || !order) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('File size must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    setUploadError('');
+    try {
+      await uploadPaymentProof(order.orderId, file);
       setUploaded(true);
       setShowUpload(false);
+    } catch (err) {
+      console.error('Gagal upload bukti bayar:', err);
+      setUploadError('Gagal upload bukti bayar. Silakan coba lagi.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -164,8 +202,11 @@ export default function CheckoutSuccess() {
               type="file"
               accept="image/jpeg,image/png,application/pdf"
               onChange={handleFileUpload}
+              disabled={uploading}
               className="w-full text-sm"
             />
+            {uploading && <p className="text-xs text-[#4A7C3A] mt-2">Mengunggah...</p>}
+            {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
           </div>
         )}
 

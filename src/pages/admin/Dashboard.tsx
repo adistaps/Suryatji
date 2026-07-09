@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ClipboardList, BarChart3, Wallet,
-  Settings, LogOut, Search, Bell, ChevronLeft, ChevronRight,
+  Settings, LogOut, Search, Bell,
   Eye, TrendingUp, Clock, AlertTriangle
 } from 'lucide-react';
+import AdminProducts from './AdminProducts';
+import AdminOrders from './AdminOrders';
+import AdminCashflow from './AdminCashflow';
+import AdminReports from './AdminReports';
+import AdminSettings from './AdminSettings';
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', id: 'dashboard' },
@@ -20,14 +27,6 @@ const stats = [
   { title: 'Total Orders', value: '156', change: '+8%', icon: ClipboardList, color: 'bg-blue-100 text-blue-700' },
   { title: 'Pending Orders', value: '23', change: 'Needs attention', icon: Clock, color: 'bg-orange-100 text-orange-700' },
   { title: 'Low Stock', value: '5', change: 'Products', icon: AlertTriangle, color: 'bg-red-100 text-red-700' },
-];
-
-const recentOrders = [
-  { id: 'SC-20250708-0001', customer: 'Budi Santoso', date: '2025-07-08', total: 52.98, status: 'pending' },
-  { id: 'SC-20250707-0042', customer: 'Ani Wijaya', date: '2025-07-07', total: 17.99, status: 'waiting_confirmation' },
-  { id: 'SC-20250707-0041', customer: 'Dedi Kurniawan', date: '2025-07-07', total: 32.98, status: 'paid' },
-  { id: 'SC-20250706-0038', customer: 'Siti Rahayu', date: '2025-07-06', total: 25.00, status: 'shipped' },
-  { id: 'SC-20250706-0037', customer: 'Ahmad Fauzi', date: '2025-07-06', total: 11.49, status: 'completed' },
 ];
 
 const statusStyles: Record<string, string> = {
@@ -69,6 +68,31 @@ const topProducts = [
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [overviewStats, setOverviewStats] = useState<typeof stats>(stats);
+  const [overviewOrders, setOverviewOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadOverview = async () => {
+      const [{ count: totalOrders }, { count: pendingOrders }, { data: revenueRows }, { data: recent }, { data: lowStock }] = await Promise.all([
+        supabase.from('orders').select('*', { count: 'exact', head: true }),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('orders').select('total').in('status', ['paid', 'shipped', 'completed']),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('product_variants').select('id').lt('stock', 10),
+      ]);
+
+      const totalRevenue = (revenueRows ?? []).reduce((sum, r) => sum + Number(r.total), 0);
+
+      setOverviewStats([
+        { title: 'Total Revenue', value: `Rp ${(totalRevenue / 1000000).toFixed(1)}M`, change: '', icon: TrendingUp, color: 'bg-green-100 text-green-700' },
+        { title: 'Total Orders', value: String(totalOrders ?? 0), change: '', icon: ClipboardList, color: 'bg-blue-100 text-blue-700' },
+        { title: 'Pending Orders', value: String(pendingOrders ?? 0), change: 'Needs attention', icon: Clock, color: 'bg-orange-100 text-orange-700' },
+        { title: 'Low Stock', value: String(lowStock?.length ?? 0), change: 'Products', icon: AlertTriangle, color: 'bg-red-100 text-red-700' },
+      ]);
+      setOverviewOrders(recent ?? []);
+    };
+    loadOverview();
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -77,7 +101,7 @@ export default function AdminDashboard() {
           <div className="space-y-8">
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-              {stats.map((stat) => (
+              {overviewStats.map((stat) => (
                 <div key={stat.title} className="bg-white rounded-xl shadow-sm p-5">
                   <div className="flex items-center justify-between">
                     <div>
@@ -157,19 +181,22 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentOrders.map((order) => (
+                    {overviewOrders.length === 0 && (
+                      <tr><td colSpan={6} className="py-6 text-center text-sm text-[#8B6F4E]">Belum ada order.</td></tr>
+                    )}
+                    {overviewOrders.map((order) => (
                       <tr key={order.id} className="border-b border-gray-50">
-                        <td className="py-3 text-sm font-medium text-[#1E1A17]">{order.id}</td>
-                        <td className="py-3 text-sm text-[#8B6F4E]">{order.customer}</td>
-                        <td className="py-3 text-sm text-[#8B6F4E]">{order.date}</td>
-                        <td className="py-3 text-sm font-medium text-[#1E1A17]">${order.total.toFixed(2)}</td>
+                        <td className="py-3 text-sm font-medium text-[#1E1A17]">{order.order_number}</td>
+                        <td className="py-3 text-sm text-[#8B6F4E]">{order.customer_name}</td>
+                        <td className="py-3 text-sm text-[#8B6F4E]">{new Date(order.created_at).toLocaleDateString('id-ID')}</td>
+                        <td className="py-3 text-sm font-medium text-[#1E1A17]">Rp {Number(order.total).toLocaleString()}</td>
                         <td className="py-3">
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[order.status]}`}>
-                            {statusLabels[order.status]}
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[order.status] ?? ''}`}>
+                            {statusLabels[order.status] ?? order.status}
                           </span>
                         </td>
                         <td className="py-3">
-                          <button className="text-[#4A7C3A] hover:bg-[#D4E8CC] p-1.5 rounded transition-colors">
+                          <button onClick={() => setActiveTab('orders')} className="text-[#4A7C3A] hover:bg-[#D4E8CC] p-1.5 rounded transition-colors">
                             <Eye size={16} />
                           </button>
                         </td>
@@ -178,163 +205,24 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-xs text-[#8B6F4E]">Showing 1-5 of 156 orders</p>
-                <div className="flex gap-1">
-                  <button className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center text-[#8B6F4E] hover:border-[#4A7C3A]">
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button className="w-8 h-8 rounded bg-[#4A7C3A] text-white flex items-center justify-center text-xs">1</button>
-                  <button className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center text-[#8B6F4E] hover:border-[#4A7C3A]">
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         );
 
       case 'products':
-        return (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Products</h2>
-              <button className="bg-[#4A7C3A] text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-[#3d6b2f] transition-colors">
-                + Add Product
-              </button>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-[#F9F6F1]">
-                  <tr>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Product</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Category</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Price</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Stock</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { name: 'Nicaragua 100% Arabica', cat: 'Arabica Green', price: 17.99, stock: 50 },
-                    { name: 'Ethiopia Arabica', cat: 'Arabica Green', price: 16.99, stock: 40 },
-                    { name: 'Colombia Organic', cat: 'Mixed Sorts', price: 25.00, stock: 25 },
-                    { name: 'Ethiopia Robusta', cat: 'Robusta Roasted', price: 11.49, stock: 60 },
-                    { name: 'Ethiopia Organic Mix', cat: 'Mixed Sorts', price: 13.49, stock: 55 },
-                  ].map((p, i) => (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="py-3 px-5 text-sm font-medium text-[#1E1A17]">{p.name}</td>
-                      <td className="py-3 px-5 text-sm text-[#8B6F4E]">{p.cat}</td>
-                      <td className="py-3 px-5 text-sm font-medium text-[#4A7C3A]">${p.price.toFixed(2)}</td>
-                      <td className="py-3 px-5 text-sm text-[#1E1A17]">{p.stock}</td>
-                      <td className="py-3 px-5">
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">Active</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        return <AdminProducts />;
 
       case 'orders':
-        return (
-          <div className="space-y-5">
-            <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Orders</h2>
-            {/* Filter tabs */}
-            <div className="flex flex-wrap gap-2">
-              {['All', 'Pending', 'Waiting', 'Paid', 'Shipped', 'Completed', 'Cancelled'].map((tab) => (
-                <button
-                  key={tab}
-                  className="px-4 py-2 rounded-full text-sm border border-gray-200 text-[#8B6F4E] hover:border-[#4A7C3A] hover:text-[#4A7C3A] transition-colors"
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-[#F9F6F1]">
-                  <tr>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Order #</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Customer</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Date</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Total</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-[#8B6F4E] uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentOrders.map((o) => (
-                    <tr key={o.id} className="border-b border-gray-50">
-                      <td className="py-3 px-5 text-sm font-medium">{o.id}</td>
-                      <td className="py-3 px-5 text-sm text-[#8B6F4E]">{o.customer}</td>
-                      <td className="py-3 px-5 text-sm text-[#8B6F4E]">{o.date}</td>
-                      <td className="py-3 px-5 text-sm font-medium">${o.total.toFixed(2)}</td>
-                      <td className="py-3 px-5">
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[o.status]}`}>
-                          {statusLabels[o.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        return <AdminOrders />;
 
       case 'cashflow':
-        return (
-          <div className="space-y-5">
-            <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Cashflow</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                { title: 'Total Income', value: 'Rp 45.2M', color: 'text-green-600' },
-                { title: 'Total Expenses', value: 'Rp 18.7M', color: 'text-red-600' },
-                { title: 'Net Balance', value: 'Rp 26.5M', color: 'text-[#4A7C3A]' },
-              ].map((s) => (
-                <div key={s.title} className="bg-white rounded-xl shadow-sm p-5 text-center">
-                  <p className="text-xs text-[#8B6F4E] uppercase tracking-wider">{s.title}</p>
-                  <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
-                </div>
-              ))}
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-[#1E1A17]">Expenses</h3>
-                <button className="bg-[#4A7C3A] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#3d6b2f]">
-                  + Add Expense
-                </button>
-              </div>
-              <table className="w-full">
-                <thead className="bg-[#F9F6F1]">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-[#8B6F4E] uppercase">Date</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-[#8B6F4E] uppercase">Category</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-[#8B6F4E] uppercase">Description</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-[#8B6F4E] uppercase">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { date: '2025-07-07', cat: 'Bahan Baku', desc: 'Green beans purchase', amount: 3500000 },
-                    { date: '2025-07-05', cat: 'Operasional', desc: 'Electricity bill', amount: 1200000 },
-                    { date: '2025-07-03', cat: 'Marketing', desc: 'Social media ads', amount: 800000 },
-                    { date: '2025-07-01', cat: 'Bahan Baku', desc: 'Packaging materials', amount: 950000 },
-                  ].map((e, i) => (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="py-3 px-4 text-sm text-[#8B6F4E]">{e.date}</td>
-                      <td className="py-3 px-4 text-sm text-[#1E1A17]">{e.cat}</td>
-                      <td className="py-3 px-4 text-sm text-[#8B6F4E]">{e.desc}</td>
-                      <td className="py-3 px-4 text-sm font-medium text-red-600">Rp {e.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        return <AdminCashflow />;
+
+      case 'reports':
+        return <AdminReports />;
+
+      case 'settings':
+        return <AdminSettings />;
 
       default:
         return (
