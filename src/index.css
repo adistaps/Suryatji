@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 24 14% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 14% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 14% 10%;
+    --primary: 100 35% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 36 33% 93%;
+    --secondary-foreground: 24 14% 10%;
+    --muted: 36 33% 93%;
+    --muted-foreground: 28 22% 43%;
+    --accent: 36 33% 93%;
+    --accent-foreground: 24 14% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 85%;
+    --input: 30 15% 85%;
+    --ring: 100 35% 35%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#4A7C3A] text-white font-semibold px-6 py-3 rounded-full hover:bg-[#3d6b2f] transition-colors;
+  }
+
+  .btn-outline {
+    @apply border border-[#4A7C3A] text-[#4A7C3A] font-semibold px-6 py-3 rounded-full hover:bg-[#4A7C3A] hover:text-white transition-colors;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5EFE6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #A89782;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8B6F4E;
+}
+
+/* Selection color */
+::selection {
+  background: #4A7C3A;
+  color: white;
+}
