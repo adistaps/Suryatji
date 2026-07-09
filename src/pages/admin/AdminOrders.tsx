@@ -69,7 +69,7 @@ export default function AdminOrders() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Orders</h2>
+      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Poppins", sans-serif' }}>Orders</h2>
 
       <div className="flex flex-wrap gap-2">
         {filters.map((f) => (

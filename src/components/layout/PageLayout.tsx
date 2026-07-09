@@ -18,7 +18,8 @@ export default function PageLayout({ showFooter = true }: PageLayoutProps) {
   return (
     <div className="min-h-[100dvh] flex flex-col">
       <Navbar />
-      <main className="flex-1 pt-20">
+      {/* pt-20 dihapus agar tidak ada ruang putih */}
+      <main className="flex-1">
         <Outlet />
       </main>
       {showFooter && <Footer />}

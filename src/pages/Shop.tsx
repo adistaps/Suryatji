@@ -48,7 +48,7 @@ function ProductCard({ product, variants }: { product: Product; variants?: Produ
           ))}
         </div>
         <Link to={`/shop/${product.slug}`}>
-          <h3 className="text-[#1E1A17] font-semibold text-base hover:text-[#4A7C3A] transition-colors" style={{ fontFamily: '"Playfair Display", serif' }}>
+          <h3 className="text-[#1E1A17] font-semibold text-base hover:text-[#4A7C3A] transition-colors" style={{ fontFamily: '"Poppins", sans-serif' }}>
             {product.name}
           </h3>
         </Link>

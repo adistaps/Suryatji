@@ -57,7 +57,7 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Settings</h2>
+      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Poppins", sans-serif' }}>Settings</h2>
 
       {/* QRIS */}
       <div className="bg-white rounded-xl shadow-sm p-5">

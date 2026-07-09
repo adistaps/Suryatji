@@ -10,6 +10,7 @@ export interface Product {
   image: string;
   salePrice?: number;
   tags: string[];
+  isNew?: boolean;
 }
 
 export interface ProductVariant {

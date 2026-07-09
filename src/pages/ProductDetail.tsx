@@ -161,7 +161,7 @@ export default function ProductDetail() {
                 <span className="text-xs text-[#8B6F4E]">({product.reviewCount} customer reviews)</span>
               </div>
 
-              <h1 className="text-[#1E1A17] font-bold text-3xl" style={{ fontFamily: '"Playfair Display", serif' }}>
+              <h1 className="text-[#1E1A17] font-bold text-3xl" style={{ fontFamily: '"Poppins", sans-serif' }}>
                 {product.name}
               </h1>
 
@@ -323,7 +323,7 @@ export default function ProductDetail() {
             <div className="mt-12">
               <h2
                 className="text-[#1E1A17] font-bold text-center mb-8"
-                style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+                style={{ fontFamily: '"Poppins", sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
               >
                 Related Products
               </h2>
@@ -345,7 +345,7 @@ export default function ProductDetail() {
                         />
                       </div>
                       <div className="p-4">
-                        <h3 className="text-[#1E1A17] font-semibold" style={{ fontFamily: '"Playfair Display", serif' }}>
+                        <h3 className="text-[#1E1A17] font-semibold" style={{ fontFamily: '"Poppins", sans-serif' }}>
                           {rp.name}
                         </h3>
                         <p className="text-[#4A7C3A] font-bold mt-1">

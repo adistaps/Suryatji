@@ -103,7 +103,7 @@ export default function CheckoutSuccess() {
 
         <h1
           className="text-[#4A7C3A] font-bold"
-          style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+          style={{ fontFamily: '"Poppins", sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
         >
           Order Placed!
         </h1>

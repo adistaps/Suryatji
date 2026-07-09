@@ -10,7 +10,7 @@ export default function Cart() {
       <div className="max-w-[1000px] mx-auto px-5">
         <h1
           className="text-[#1E1A17] font-bold mb-8"
-          style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+          style={{ fontFamily: '"Poppins", sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
         >
           Shopping Cart
         </h1>
@@ -110,7 +110,7 @@ export default function Cart() {
 
             {/* Cart Totals */}
             <div className="mt-10 ml-auto max-w-sm">
-              <h3 className="text-[#1E1A17] font-semibold text-lg mb-4" style={{ fontFamily: '"Playfair Display", serif' }}>
+              <h3 className="text-[#1E1A17] font-semibold text-lg mb-4" style={{ fontFamily: '"Poppins", sans-serif' }}>
                 Cart Totals
               </h3>
               <div className="space-y-3">

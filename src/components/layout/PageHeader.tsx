@@ -9,9 +9,9 @@ interface PageHeaderProps {
 export default function PageHeader({ title, breadcrumbs, backgroundImage = 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1600&h=400&fit=crop' }: PageHeaderProps) {
   return (
     <section
-      className="relative h-[300px] flex items-center justify-center overflow-hidden"
+      className="relative h-[380px] md:h-[450px] flex items-center justify-center overflow-hidden pt-28 md:pt-32"
       style={{
-        backgroundImage: `linear-gradient(rgba(30,26,23,0.75), rgba(30,26,23,0.85)), url(${backgroundImage})`,
+        backgroundImage: `linear-gradient(rgba(30,26,23,0.7), rgba(30,26,23,0.85)), url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -20,7 +20,7 @@ export default function PageHeader({ title, breadcrumbs, backgroundImage = 'http
         <h1
           className="text-white font-bold mb-3"
           style={{
-            fontFamily: '"Playfair Display", serif',
+            fontFamily: '"Poppins", sans-serif',
             fontSize: 'clamp(2rem, 5vw, 3.5rem)',
             lineHeight: 1.1,
             letterSpacing: '-0.02em',

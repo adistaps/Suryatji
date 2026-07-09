@@ -198,6 +198,7 @@ create policy "admin read payment_proofs" on payment_proofs for select using (au
 create policy "admin full access expenses" on expenses for all using (auth.role() = 'authenticated');
 create policy "admin read admin_users" on admin_users for select using (auth.role() = 'authenticated');
 
+
 -- ============================================
 -- SEED DATA: Bank Accounts & Categories (Suryatji Coffee)
 -- ============================================
@@ -210,3 +211,42 @@ insert into categories (name, slug) values
   ('Arabica', 'arabica'),
   ('Robusta', 'robusta'),
   ('Blend', 'blend');
+
+-- ============================================
+-- STORAGE POLICIES
+-- ============================================
+-- product-images: public read, admin write
+create policy "public read product-images"
+  on storage.objects for select
+  using (bucket_id = 'product-images');
+
+create policy "admin upload product-images"
+  on storage.objects for insert
+  with check (bucket_id = 'product-images' and auth.role() = 'authenticated');
+
+create policy "admin update product-images"
+  on storage.objects for update
+  using (bucket_id = 'product-images' and auth.role() = 'authenticated');
+
+create policy "admin delete product-images"
+  on storage.objects for delete
+  using (bucket_id = 'product-images' and auth.role() = 'authenticated');
+
+-- payment-proofs: anonymous can upload, admin can read
+create policy "public upload payment-proofs"
+  on storage.objects for insert
+  with check (bucket_id = 'payment-proofs');
+
+create policy "admin read payment-proofs"
+  on storage.objects for select
+  using (bucket_id = 'payment-proofs' and auth.role() = 'authenticated');
+
+-- qris: public read, admin manage
+create policy "public read qris"
+  on storage.objects for select
+  using (bucket_id = 'qris');
+
+create policy "admin manage qris"
+  on storage.objects for all
+  using (bucket_id = 'qris' and auth.role() = 'authenticated');
+

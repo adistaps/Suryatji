@@ -38,7 +38,7 @@ export default function AdminReports() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Reports</h2>
+      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Poppins", sans-serif' }}>Reports</h2>
 
       <div className="bg-white rounded-xl shadow-sm p-5 flex flex-wrap items-end gap-3">
         <div>

@@ -240,7 +240,7 @@ export default function Checkout() {
       <div className="max-w-[1100px] mx-auto px-5">
         <h1
           className="text-[#1E1A17] font-bold mb-8"
-          style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+          style={{ fontFamily: '"Poppins", sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
         >
           Checkout
         </h1>
@@ -248,7 +248,7 @@ export default function Checkout() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
           {/* Billing Form */}
           <div className="lg:col-span-3">
-            <h2 className="text-[#1E1A17] font-semibold text-lg mb-6" style={{ fontFamily: '"Playfair Display", serif' }}>
+            <h2 className="text-[#1E1A17] font-semibold text-lg mb-6" style={{ fontFamily: '"Poppins", sans-serif' }}>
               Billing Details
             </h2>
 
@@ -470,7 +470,7 @@ export default function Checkout() {
           {/* Order Summary */}
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-[#F9F6F1] rounded-xl p-6">
-              <h2 className="text-[#1E1A17] font-semibold text-lg mb-5" style={{ fontFamily: '"Playfair Display", serif' }}>
+              <h2 className="text-[#1E1A17] font-semibold text-lg mb-5" style={{ fontFamily: '"Poppins", sans-serif' }}>
                 Your Order
               </h2>
 

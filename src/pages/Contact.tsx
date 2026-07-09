@@ -65,7 +65,7 @@ export default function Contact() {
         <div className="max-w-[600px] mx-auto px-5">
           <h2
             className="text-[#1E1A17] font-bold text-center mb-8"
-            style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
+            style={{ fontFamily: '"Poppins", sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
           >
             Send Message
           </h2>

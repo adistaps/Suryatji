@@ -42,7 +42,7 @@ export default function AdminCashflow() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>Cashflow</h2>
+      <h2 className="text-xl font-bold text-[#1E1A17]" style={{ fontFamily: '"Poppins", sans-serif' }}>Cashflow</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="bg-white rounded-xl shadow-sm p-5 text-center">

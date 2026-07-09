@@ -253,7 +253,7 @@ export default function AdminDashboard() {
                 <path d="M12 2C8.5 2 6 4.5 6 7c0 1.5.5 2.5 1.5 3.5S9 12 9 13.5c0 2-1 3.5-3 4.5v1.5c2.5 1 6 1.5 6 1.5s3.5-.5 6-1.5V18c-2-1-3-2.5-3-4.5 0-1.5.5-2.5 1.5-3.5S18 8.5 18 7c0-2.5-2.5-5-6-5zm0 2c2 0 3.5 1.5 3.5 3S14 10 12 10 8.5 8.5 8.5 7 10 4 12 4z" />
               </svg>
             </div>
-            <span className="text-white font-semibold" style={{ fontFamily: '"Playfair Display", serif' }}>
+            <span className="text-white font-semibold" style={{ fontFamily: '"Poppins", sans-serif' }}>
               Suryatji Admin
             </span>
           </div>
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
               <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
           </button>
-          <h2 className="text-[#1E1A17] font-semibold capitalize" style={{ fontFamily: '"Playfair Display", serif' }}>
+          <h2 className="text-[#1E1A17] font-semibold capitalize" style={{ fontFamily: '"Poppins", sans-serif' }}>
             {activeTab}
           </h2>
           <div className="flex items-center gap-4">

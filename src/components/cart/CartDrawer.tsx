@@ -19,7 +19,7 @@ export default function CartDrawer() {
       <div className="fixed top-0 right-0 bottom-0 w-full max-w-[400px] bg-white z-[56] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-[#1E1A17]" style={{ fontFamily: '"Playfair Display", serif' }}>
+          <h3 className="text-lg font-semibold text-[#1E1A17]" style={{ fontFamily: '"Poppins", sans-serif' }}>
             Your Cart
           </h3>
           <button
