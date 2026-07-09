@@ -129,9 +129,9 @@ function ProductCard({ product }: { product: typeof products[0] }) {
           ))}
         </div>
         <div className="flex items-center gap-3 mt-4">
-          <span className="text-[#4A7C3A] font-bold text-lg">${displayPrice.toFixed(2)}</span>
+          <span className="text-[#4A7C3A] font-bold text-lg">Rp {Math.round(displayPrice).toLocaleString('id-ID')}</span>
           {product.salePrice && defaultVariant && (
-            <span className="text-[#A89782] line-through text-sm">${defaultVariant.price.toFixed(2)}</span>
+            <span className="text-[#A89782] line-through text-sm">Rp {Math.round(defaultVariant.price).toLocaleString('id-ID')}</span>
           )}
         </div>
         <div className="flex gap-2 mt-4">

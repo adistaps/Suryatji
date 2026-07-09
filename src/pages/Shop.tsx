@@ -52,9 +52,9 @@ function ProductCard({ product }: { product: typeof products[0] }) {
           </h3>
         </Link>
         <div className="flex items-center gap-2 mt-2">
-          <span className="text-[#4A7C3A] font-bold">${displayPrice.toFixed(2)}</span>
+          <span className="text-[#4A7C3A] font-bold">Rp {Math.round(displayPrice).toLocaleString('id-ID')}</span>
           {product.salePrice && (
-            <span className="text-[#A89782] text-sm line-through">${originalPrice.toFixed(2)}</span>
+            <span className="text-[#A89782] text-sm line-through">Rp {Math.round(originalPrice).toLocaleString('id-ID')}</span>
           )}
         </div>
       </div>

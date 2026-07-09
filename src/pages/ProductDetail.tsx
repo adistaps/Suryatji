@@ -291,7 +291,7 @@ export default function ProductDetail() {
                       {rp.name}
                     </h3>
                     <p className="text-[#4A7C3A] font-bold mt-1">
-                      ${(rp.salePrice || getVariantsByProductId(rp.id)[0]?.price || 0).toFixed(2)}
+                      Rp {Math.round((rp.salePrice || getVariantsByProductId(rp.id)[0]?.price || 0)).toLocaleString('id-ID')}
                     </p>
                   </div>
                 </Link>

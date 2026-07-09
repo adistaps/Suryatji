@@ -58,7 +58,7 @@ export default function Cart() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 text-[#8B6F4E]">${item.variant.price.toFixed(2)}</td>
+                      <td className="py-4 text-[#8B6F4E]">Rp {Math.round(item.variant.price).toLocaleString('id-ID')}</td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <button
@@ -77,7 +77,7 @@ export default function Cart() {
                         </div>
                       </td>
                       <td className="py-4 font-semibold text-[#1E1A17]">
-                        ${(item.variant.price * item.quantity).toFixed(2)}
+                        Rp {Math.round((item.variant.price * item.quantity)).toLocaleString('id-ID')}
                       </td>
                       <td className="py-4">
                         <button
@@ -116,7 +116,7 @@ export default function Cart() {
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8B6F4E]">Subtotal</span>
-                  <span className="font-medium text-[#1E1A17]">${subtotal.toFixed(2)}</span>
+                  <span className="font-medium text-[#1E1A17]">Rp {Math.round(subtotal).toLocaleString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8B6F4E]">Shipping</span>
@@ -124,7 +124,7 @@ export default function Cart() {
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between">
                   <span className="font-semibold text-[#1E1A17]">Total</span>
-                  <span className="font-bold text-[#4A7C3A] text-lg">${subtotal.toFixed(2)}</span>
+                  <span className="font-bold text-[#4A7C3A] text-lg">Rp {Math.round(subtotal).toLocaleString('id-ID')}</span>
                 </div>
               </div>
               <Link

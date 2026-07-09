@@ -123,7 +123,7 @@ export default function CheckoutSuccess() {
                   <span className="text-[#8B6F4E]"> x{item.qty}</span>
                   <p className="text-xs text-[#8B6F4E]">{item.variantLabel}</p>
                 </div>
-                <span className="font-medium">${(item.price * item.qty).toFixed(2)}</span>
+                <span className="font-medium">Rp {Math.round((item.price * item.qty)).toLocaleString('id-ID')}</span>
               </div>
             ))}
           </div>
@@ -134,7 +134,7 @@ export default function CheckoutSuccess() {
             </div>
             <div className="flex justify-between font-bold text-[#1E1A17]">
               <span>Total</span>
-              <span className="text-[#4A7C3A]">${order.total.toFixed(2)}</span>
+              <span className="text-[#4A7C3A]">Rp {Math.round(order.total).toLocaleString('id-ID')}</span>
             </div>
           </div>
         </div>
@@ -165,7 +165,7 @@ export default function CheckoutSuccess() {
           )}
           <div className="mt-4 p-3 bg-[#F9F6F1] rounded-lg">
             <p className="text-sm font-semibold text-[#1E1A17]">Amount to Pay:</p>
-            <p className="text-xl font-bold text-[#4A7C3A]">${order.total.toFixed(2)}</p>
+            <p className="text-xl font-bold text-[#4A7C3A]">Rp {Math.round(order.total).toLocaleString('id-ID')}</p>
           </div>
         </div>
 

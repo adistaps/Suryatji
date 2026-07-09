@@ -8,6 +8,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    proxy: {
+      '/api/komerce': {
+        target: 'https://rajaongkir.komerce.id',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/komerce/, '/api/v1'),
+        secure: true,
+      },
+    },
   },
   resolve: {
     alias: {

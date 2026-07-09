@@ -2,38 +2,41 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
 import { fetchBankAccounts } from '@/lib/settings';
-import { checkShipping, WEIGHT_GRAMS_MAP } from '@/lib/komerce';
+import { fetchProvinces, fetchCities, fetchDistricts, fetchSubDistricts, checkShipping, WEIGHT_GRAMS_MAP } from '@/lib/komerce';
+import type { Province, City, District, SubDistrict } from '@/lib/komerce';
 import { createOrder } from '@/lib/orders';
 import type { BankAccount, ShippingMethod } from '@/types';
-
-const provinces = [
-  'Jawa Tengah', 'Jawa Barat', 'Jawa Timur', 'DKI Jakarta', 'DI Yogyakarta',
-  'Banten', 'Bali', 'Sumatera Utara', 'Sumatera Barat', 'Sulawesi Selatan',
-];
-
-const cities: Record<string, string[]> = {
-  'Jawa Tengah': ['Temanggung', 'Semarang', 'Solo', 'Magelang', 'Wonosobo'],
-  'Jawa Barat': ['Bandung', 'Bogor', 'Bekasi', 'Depok'],
-  'Jawa Timur': ['Surabaya', 'Malang', 'Kediri'],
-  'DKI Jakarta': ['Jakarta Pusat', 'Jakarta Selatan', 'Jakarta Barat', 'Jakarta Timur', 'Jakarta Utara'],
-  'DI Yogyakarta': ['Yogyakarta', 'Sleman', 'Bantul'],
-  'Banten': ['Tangerang', 'Serang', 'Cilegon'],
-  'Bali': ['Denpasar', 'Badung', 'Gianyar'],
-};
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
+
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
     email: '',
-    province: '',
-    city: '',
-    district: '',
     address: '',
     postalCode: '',
   });
+
+  // Pilihan bertingkat: Provinsi → Kota → Kecamatan → Kelurahan
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
+  const [selectedSubDistrict, setSelectedSubDistrict] = useState<SubDistrict | null>(null);
+
+  // Data dropdown
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [subDistricts, setSubDistricts] = useState<SubDistrict[]>([]);
+
+  // Loading states
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingSubDistricts, setLoadingSubDistricts] = useState(false);
+
   const [paymentMethod, setPaymentMethod] = useState<'qris' | 'bank_transfer'>('qris');
   const [selectedBank, setSelectedBank] = useState('');
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -43,6 +46,61 @@ export default function Checkout() {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Load provinsi saat pertama kali
+  useEffect(() => {
+    setLoadingProvinces(true);
+    fetchProvinces()
+      .then(setProvinces)
+      .catch(() => setProvinces([]))
+      .finally(() => setLoadingProvinces(false));
+  }, []);
+
+  // Load kota saat provinsi berubah
+  useEffect(() => {
+    if (!selectedProvince) {
+      setCities([]); setSelectedCity(null);
+      setDistricts([]); setSelectedDistrict(null);
+      setSubDistricts([]); setSelectedSubDistrict(null);
+      return;
+    }
+    setLoadingCities(true);
+    setCities([]); setSelectedCity(null);
+    setDistricts([]); setSelectedDistrict(null);
+    setSubDistricts([]); setSelectedSubDistrict(null);
+    fetchCities(selectedProvince.id)
+      .then(setCities).catch(() => setCities([]))
+      .finally(() => setLoadingCities(false));
+  }, [selectedProvince]);
+
+  // Load kecamatan saat kota berubah
+  useEffect(() => {
+    if (!selectedCity) {
+      setDistricts([]); setSelectedDistrict(null);
+      setSubDistricts([]); setSelectedSubDistrict(null);
+      return;
+    }
+    setLoadingDistricts(true);
+    setDistricts([]); setSelectedDistrict(null);
+    setSubDistricts([]); setSelectedSubDistrict(null);
+    fetchDistricts(selectedCity.id)
+      .then(setDistricts).catch(() => setDistricts([]))
+      .finally(() => setLoadingDistricts(false));
+  }, [selectedCity]);
+
+  // Load kelurahan saat kecamatan berubah
+  useEffect(() => {
+    if (!selectedDistrict) {
+      setSubDistricts([]); setSelectedSubDistrict(null);
+      return;
+    }
+    setLoadingSubDistricts(true);
+    setSubDistricts([]); setSelectedSubDistrict(null);
+    setCalculatedShipping(false); setShippingMethods([]); setSelectedShipping(null);
+    fetchSubDistricts(selectedDistrict.id)
+      .then(setSubDistricts).catch(() => setSubDistricts([]))
+      .finally(() => setLoadingSubDistricts(false));
+  }, [selectedDistrict]);
 
   useEffect(() => {
     fetchBankAccounts().then(setBankAccounts).catch(() => setBankAccounts([]));
@@ -58,10 +116,11 @@ export default function Checkout() {
 
   const calculateShipping = async () => {
     const newErrors: Record<string, string> = {};
-    if (!form.province) newErrors.province = 'Province is required';
-    if (!form.city) newErrors.city = 'City is required';
-    if (!form.district) newErrors.district = 'District is required';
-    if (!form.address) newErrors.address = 'Address is required';
+    if (!selectedProvince) newErrors.province = 'Provinsi wajib diisi';
+    if (!selectedCity) newErrors.city = 'Kota wajib diisi';
+    if (!selectedDistrict) newErrors.district = 'Kecamatan wajib diisi';
+    if (!selectedSubDistrict) newErrors.subDistrict = 'Kelurahan wajib diisi';
+    if (!form.address) newErrors.address = 'Alamat wajib diisi';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -73,7 +132,10 @@ export default function Checkout() {
         (sum, item) => sum + (WEIGHT_GRAMS_MAP[item.variant.weight] ?? 0) * item.quantity,
         0
       );
-      const methods = await checkShipping({ destinationCity: form.city, totalWeightGrams });
+      const methods = await checkShipping({
+        destinationSubDistrictId: selectedSubDistrict!.id,
+        totalWeightGrams,
+      });
       setShippingMethods(methods);
       setCalculatedShipping(true);
       setSelectedShipping(0);
@@ -82,18 +144,20 @@ export default function Checkout() {
     }
   };
 
+
   const placeOrder = async () => {
     const newErrors: Record<string, string> = {};
-    if (!form.fullName) newErrors.fullName = 'Full name is required';
-    if (!form.phone) newErrors.phone = 'Phone number is required';
+    if (!form.fullName) newErrors.fullName = 'Nama lengkap wajib diisi';
+    if (!form.phone) newErrors.phone = 'Nomor HP wajib diisi';
     else if (!/^[0-9]{10,13}$/.test(form.phone.replace(/\D/g, ''))) {
-      newErrors.phone = 'Invalid phone number';
+      newErrors.phone = 'Nomor HP tidak valid';
     }
-    if (!form.province) newErrors.province = 'Province is required';
-    if (!form.city) newErrors.city = 'City is required';
-    if (!form.district) newErrors.district = 'District is required';
-    if (!form.address) newErrors.address = 'Address is required';
-    if (!calculatedShipping) newErrors.shipping = 'Please calculate shipping first';
+    if (!selectedProvince) newErrors.province = 'Provinsi wajib diisi';
+    if (!selectedCity) newErrors.city = 'Kota wajib diisi';
+    if (!selectedDistrict) newErrors.district = 'Kecamatan wajib diisi';
+    if (!selectedSubDistrict) newErrors.subDistrict = 'Kelurahan wajib diisi';
+    if (!form.address) newErrors.address = 'Alamat wajib diisi';
+    if (!calculatedShipping) newErrors.shipping = 'Hitung ongkir terlebih dahulu';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -110,11 +174,11 @@ export default function Checkout() {
           fullName: form.fullName,
           phone: form.phone,
           email: form.email || undefined,
-          province: form.province,
-          city: form.city,
-          district: form.district,
+          province: selectedProvince?.name ?? '',
+          city: `${selectedCity?.type ?? ''} ${selectedCity?.name ?? ''}`.trim(),
+          district: `${selectedDistrict?.name ?? ''}, ${selectedSubDistrict?.name ?? ''}`.trim(),
           address: form.address,
-          postalCode: form.postalCode || undefined,
+          postalCode: selectedSubDistrict?.zip_code || form.postalCode || undefined,
         },
         items,
         courier: courierLabel,
@@ -130,10 +194,11 @@ export default function Checkout() {
         orderNumber,
         customerName: form.fullName,
         customerPhone: form.phone,
-        customerAddress: `${form.address}, ${form.district}, ${form.city}, ${form.province}`,
-        province: form.province,
-        city: form.city,
-        district: form.district,
+        customerAddress: `${form.address}, ${selectedSubDistrict?.name ?? ''}, ${selectedDistrict?.name ?? ''}, ${selectedCity?.name ?? ''}, ${selectedProvince?.name ?? ''}`,
+        province: selectedProvince?.name ?? '',
+        city: selectedCity?.name ?? '',
+        district: selectedDistrict?.name ?? '',
+        subDistrict: selectedSubDistrict?.name ?? '',
         shippingCost,
         courier: courierLabel,
         subtotal,
@@ -234,34 +299,45 @@ export default function Checkout() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
-                    Province <span className="text-red-500">*</span>
+                    Provinsi <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={form.province}
-                    onChange={(e) => { updateField('province', e.target.value); updateField('city', ''); }}
+                    value={selectedProvince?.id ?? ''}
+                    onChange={(e) => {
+                      const prov = provinces.find(p => p.id === parseInt(e.target.value)) || null;
+                      setSelectedProvince(prov);
+                      if (errors.province) setErrors(prev => ({ ...prev, province: '' }));
+                    }}
                     className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] ${
                       errors.province ? 'border-red-400' : 'border-gray-200'
                     }`}
+                    disabled={loadingProvinces}
                   >
-                    <option value="">Select Province</option>
-                    {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="">{loadingProvinces ? 'Memuat...' : 'Pilih Provinsi'}</option>
+                    {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   {errors.province && <p className="text-red-500 text-xs mt-1">{errors.province}</p>}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
-                    City <span className="text-red-500">*</span>
+                    Kota / Kabupaten <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={form.city}
-                    onChange={(e) => updateField('city', e.target.value)}
+                    value={selectedCity?.id ?? ''}
+                    onChange={(e) => {
+                      const city = cities.find(c => c.id === parseInt(e.target.value)) || null;
+                      setSelectedCity(city);
+                      if (errors.city) setErrors(prev => ({ ...prev, city: '' }));
+                    }}
                     className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] ${
                       errors.city ? 'border-red-400' : 'border-gray-200'
                     }`}
-                    disabled={!form.province}
+                    disabled={!selectedProvince || loadingCities}
                   >
-                    <option value="">Select City</option>
-                    {(cities[form.province] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                    <option value="">
+                      {loadingCities ? 'Memuat...' : selectedProvince ? 'Pilih Kota/Kabupaten' : 'Pilih Provinsi dulu'}
+                    </option>
+                    {cities.map(c => <option key={c.id} value={c.id}>{c.type ? `${c.type} ${c.name}` : c.name}</option>)}
                   </select>
                   {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
                 </div>
@@ -269,23 +345,57 @@ export default function Checkout() {
 
               <div>
                 <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
-                  District <span className="text-red-500">*</span>
+                  Kecamatan <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={form.district}
-                  onChange={(e) => updateField('district', e.target.value)}
+                <select
+                  value={selectedDistrict?.id ?? ''}
+                  onChange={(e) => {
+                    const dist = districts.find(d => d.id === parseInt(e.target.value)) || null;
+                    setSelectedDistrict(dist);
+                    if (errors.district) setErrors(prev => ({ ...prev, district: '' }));
+                  }}
                   className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] ${
                     errors.district ? 'border-red-400' : 'border-gray-200'
                   }`}
-                  placeholder="Kecamatan"
-                />
+                  disabled={!selectedCity || loadingDistricts}
+                >
+                  <option value="">
+                    {loadingDistricts ? 'Memuat...' : selectedCity ? 'Pilih Kecamatan' : 'Pilih Kota dulu'}
+                  </option>
+                  {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
                 {errors.district && <p className="text-red-500 text-xs mt-1">{errors.district}</p>}
               </div>
 
               <div>
                 <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
-                  Full Address <span className="text-red-500">*</span>
+                  Kelurahan / Desa <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedSubDistrict?.id ?? ''}
+                  onChange={(e) => {
+                    const sd = subDistricts.find(s => s.id === parseInt(e.target.value)) || null;
+                    setSelectedSubDistrict(sd);
+                    // Auto-fill kode pos dari API
+                    if (sd?.zip_code) updateField('postalCode', sd.zip_code);
+                    if (errors.subDistrict) setErrors(prev => ({ ...prev, subDistrict: '' }));
+                  }}
+                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] ${
+                    errors.subDistrict ? 'border-red-400' : 'border-gray-200'
+                  }`}
+                  disabled={!selectedDistrict || loadingSubDistricts}
+                >
+                  <option value="">
+                    {loadingSubDistricts ? 'Memuat...' : selectedDistrict ? 'Pilih Kelurahan/Desa' : 'Pilih Kecamatan dulu'}
+                  </option>
+                  {subDistricts.map(s => <option key={s.id} value={s.id}>{s.name}{s.zip_code ? ` (${s.zip_code})` : ''}</option>)}
+                </select>
+                {errors.subDistrict && <p className="text-red-500 text-xs mt-1">{errors.subDistrict}</p>}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
+                  Alamat Lengkap <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={form.address}
@@ -294,28 +404,33 @@ export default function Checkout() {
                   className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] ${
                     errors.address ? 'border-red-400' : 'border-gray-200'
                   }`}
-                  placeholder="Street name, house number, RT/RW"
+                  placeholder="Nama jalan, nomor rumah, RT/RW"
                 />
                 {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
               </div>
 
               <div>
-                <label className="text-sm font-medium text-[#1E1A17] mb-1 block">Postal Code</label>
+                <label className="text-sm font-medium text-[#1E1A17] mb-1 block">
+                  Kode Pos
+                  {selectedSubDistrict?.zip_code && (
+                    <span className="text-xs text-[#4A7C3A] ml-2">(terisi otomatis)</span>
+                  )}
+                </label>
                 <input
                   type="text"
                   value={form.postalCode}
                   onChange={(e) => updateField('postalCode', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A]"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#4A7C3A] bg-white"
                   placeholder="56264"
                 />
               </div>
 
               <button
                 onClick={calculateShipping}
-                disabled={shippingLoading}
+                disabled={shippingLoading || !selectedSubDistrict}
                 className="bg-[#4A7C3A] text-white font-semibold px-6 py-3 rounded-full hover:bg-[#3d6b2f] transition-colors disabled:opacity-60"
               >
-                {shippingLoading ? 'Menghitung...' : 'Calculate Shipping'}
+                {shippingLoading ? 'Menghitung ongkir...' : 'Hitung Ongkir'}
               </button>
               {errors.shipping && <p className="text-red-500 text-xs">{errors.shipping}</p>}
 
@@ -367,7 +482,7 @@ export default function Checkout() {
                       <span className="text-[#8B6F4E]"> x{item.quantity}</span>
                       <p className="text-xs text-[#8B6F4E]">{item.variant.weight} - {item.variant.grindType.replace('_', ' ')}</p>
                     </div>
-                    <span className="font-medium text-[#1E1A17]">${(item.variant.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-medium text-[#1E1A17]">Rp {(item.variant.price * item.quantity).toLocaleString('id-ID')}</span>
                   </div>
                 ))}
               </div>
@@ -375,7 +490,7 @@ export default function Checkout() {
               <div className="border-t border-gray-200 pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8B6F4E]">Subtotal</span>
-                  <span className="font-medium">${subtotal.toFixed(2)}</span>
+                  <span className="font-medium">Rp {subtotal.toLocaleString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8B6F4E]">Shipping</span>
@@ -383,7 +498,7 @@ export default function Checkout() {
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between">
                   <span className="font-bold text-[#1E1A17]">Total</span>
-                  <span className="font-bold text-[#4A7C3A] text-lg">${total.toFixed(2)}</span>
+                  <span className="font-bold text-[#4A7C3A] text-lg">Rp {total.toLocaleString('id-ID')}</span>
                 </div>
               </div>
 

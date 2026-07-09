@@ -21,10 +21,12 @@ function generateOrderNumber(): string {
 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string; orderNumber: string }> {
   const orderNumber = generateOrderNumber();
+  const orderId = crypto.randomUUID(); // generate ID di client
 
-  const { data: order, error: orderError } = await supabase
+  const { error: orderError } = await supabase
     .from('orders')
     .insert({
+      id: orderId,
       order_number: orderNumber,
       customer_name: input.address.fullName,
       customer_phone: input.address.phone,
@@ -41,14 +43,12 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
       payment_method: input.paymentMethod,
       bank_account_id: input.bankAccountId ?? null,
       status: 'pending',
-    })
-    .select()
-    .single();
+    });
 
   if (orderError) throw orderError;
 
   const orderItemsPayload = input.items.map((item) => ({
-    order_id: order.id,
+    order_id: orderId,
     product_variant_id: item.variant.id,
     product_name_snapshot: item.product.name,
     variant_label_snapshot: `${item.variant.weight} - ${item.variant.grindType.replace('_', ' ')}`,
@@ -59,7 +59,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
   const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload);
   if (itemsError) throw itemsError;
 
-  return { id: order.id, orderNumber: order.order_number };
+  return { id: orderId, orderNumber };
 }
 
 export async function uploadPaymentProof(orderId: string, file: File): Promise<string> {

@@ -76,7 +76,7 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <span className="text-sm font-semibold text-[#4A7C3A]">
-                        ${(item.variant.price * item.quantity).toFixed(2)}
+                        Rp {Math.round((item.variant.price * item.quantity)).toLocaleString('id-ID')}
                       </span>
                     </div>
                   </div>
@@ -97,7 +97,7 @@ export default function CartDrawer() {
           <div className="p-5 border-t border-gray-100 bg-gray-50/50">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[#8B6F4E]">Subtotal</span>
-              <span className="text-lg font-semibold text-[#1E1A17]">${subtotal.toFixed(2)}</span>
+              <span className="text-lg font-semibold text-[#1E1A17]">Rp {Math.round(subtotal).toLocaleString('id-ID')}</span>
             </div>
             <Link
               to="/checkout"
