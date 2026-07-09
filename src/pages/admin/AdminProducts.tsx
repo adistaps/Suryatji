@@ -31,8 +31,10 @@ export default function AdminProducts() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
 
   const [form, setForm] = useState({
-    name: '', slug: '', categoryId: '', description: '', origin: '', isActive: true,
+    name: '', slug: '', categoryId: '', description: '', origin: '', features: [] as string[], tags: [] as string[], isActive: true,
   });
+  const [featureInput, setFeatureInput] = useState('');
+  const [tagInput, setTagInput] = useState('');
   const [variantForm, setVariantForm] = useState({
     weight: '250g' as '250g' | '500g' | '1kg',
     grindType: 'whole_bean' as 'whole_bean' | 'coarse' | 'medium' | 'fine' | 'espresso',
@@ -54,14 +56,33 @@ export default function AdminProducts() {
 
   const openAddForm = () => {
     setEditingProduct(null);
-    setForm({ name: '', slug: '', categoryId: categories[0]?.id ?? '', description: '', origin: '', isActive: true });
+    setForm({ name: '', slug: '', categoryId: categories[0]?.id ?? '', description: '', origin: '', features: [], tags: [], isActive: true });
+    setFeatureInput('');
+    setTagInput('');
     setVariants([]);
     setShowForm(true);
   };
 
   const openEditForm = async (p: ProductRow) => {
     setEditingProduct(p);
-    setForm({ name: p.name, slug: p.slug, categoryId: p.category_id ?? '', description: '', origin: '', isActive: p.is_active });
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', p.id)
+      .single();
+    
+    setForm({ 
+      name: p.name, 
+      slug: p.slug, 
+      categoryId: p.category_id ?? '', 
+      description: data?.description ?? '', 
+      origin: data?.origin ?? '', 
+      features: data?.features ?? [],
+      tags: data?.tags ?? [],
+      isActive: p.is_active 
+    });
+    setFeatureInput('');
+    setTagInput('');
     setShowForm(true);
     const v = await fetchVariantsByProductId(p.id);
     setVariants(v);
@@ -74,13 +95,13 @@ export default function AdminProducts() {
         await updateProduct(editingProduct.id, {
           name: form.name, slug: form.slug, categoryId: form.categoryId,
           description: form.description, origin: form.origin, isActive: form.isActive,
-          features: [], tags: [],
+          features: form.features, tags: form.tags,
         });
       } else {
         const created = await createProduct({
           name: form.name, slug: form.slug, categoryId: form.categoryId,
           description: form.description, origin: form.origin, isActive: form.isActive,
-          features: [], tags: [],
+          features: form.features, tags: form.tags,
         });
         setEditingProduct({ id: created.id, name: form.name, slug: form.slug, category_id: form.categoryId, categories: null, is_active: form.isActive });
       }
@@ -185,6 +206,85 @@ export default function AdminProducts() {
               </select>
               <textarea placeholder="Deskripsi" value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               <input placeholder="Origin (contoh: Kledung, Temanggung)" value={form.origin} onChange={(e) => setForm(f => ({ ...f, origin: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              
+              {/* Features */}
+              <div>
+                <label className="text-sm font-medium text-[#1E1A17] block mb-1">Features (Ciri-ciri produk)</label>
+                <div className="flex gap-2 mb-2">
+                  <input 
+                    placeholder="Contoh: High altitude" 
+                    value={featureInput} 
+                    onChange={(e) => setFeatureInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && featureInput.trim()) {
+                        setForm(f => ({ ...f, features: [...f.features, featureInput.trim()] }));
+                        setFeatureInput('');
+                      }
+                    }}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (featureInput.trim()) {
+                        setForm(f => ({ ...f, features: [...f.features, featureInput.trim()] }));
+                        setFeatureInput('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {form.features.map((feat, i) => (
+                    <span key={i} className="bg-[#D4E8CC] text-[#4A7C3A] px-3 py-1 rounded-full text-xs flex items-center gap-2">
+                      {feat}
+                      <button type="button" onClick={() => setForm(f => ({ ...f, features: f.features.filter((_, idx) => idx !== i) }))} className="hover:opacity-70">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="text-sm font-medium text-[#1E1A17] block mb-1">Tags</label>
+                <div className="flex gap-2 mb-2">
+                  <input 
+                    placeholder="Contoh: arabica" 
+                    value={tagInput} 
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] }));
+                        setTagInput('');
+                      }
+                    }}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (tagInput.trim()) {
+                        setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] }));
+                        setTagInput('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {form.tags.map((tag, i) => (
+                    <span key={i} className="bg-[#E8E3D9] text-[#8B6F4E] px-3 py-1 rounded-full text-xs flex items-center gap-2">
+                      {tag}
+                      <button type="button" onClick={() => setForm(f => ({ ...f, tags: f.tags.filter((_, idx) => idx !== i) }))} className="hover:opacity-70">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.isActive} onChange={(e) => setForm(f => ({ ...f, isActive: e.target.checked }))} />
                 Tampilkan di shop (Active)
